@@ -37,6 +37,8 @@ labels:
 
 ## Enhanced Functions (NEW)
 
+**Implementation**: All enhanced template functions are implemented in [`generator/labels.go`](generator/labels.go)
+
 ### Environment Variable Functions
 
 Access container environment variables for dynamic configuration.
@@ -396,7 +398,29 @@ Comprehensive test suite validates all template functions across multiple real-w
 
 ### Test Structure
 
-The testing infrastructure is located in `tests/template-functions/` and includes:
+The testing infrastructure is located in [`tests/template-functions/`](tests/template-functions/) and includes:
+
+**Test Configurations:**
+- [`compose.yaml`](tests/template-functions/compose.yaml) - Main test configuration (15+ services)
+- [`simple-test.yaml`](tests/template-functions/simple-test.yaml) - Basic functionality tests
+- [`enhanced-test.yaml`](tests/template-functions/enhanced-test.yaml) - Advanced template function tests
+
+**Test Runners:**
+- [`run.sh`](tests/template-functions/run.sh) - Primary test runner script
+- [`simple-run.sh`](tests/template-functions/simple-run.sh) - Basic functionality test runner
+- [`validate.sh`](tests/template-functions/validate.sh) - Template function validation
+- [`api-responses.sh`](tests/template-functions/api-responses.sh) - API response testing
+
+**Test Data:**
+- [`test-data/django/`](tests/template-functions/test-data/django/) - Django static/media test files
+- [`test-data/react-build/`](tests/template-functions/test-data/react-build/) - React build artifacts
+- [`test-data/static/`](tests/template-functions/test-data/static/) - Basic static files
+- [`test-data/webapp/`](tests/template-functions/test-data/webapp/) - Web application assets
+
+**Documentation:**
+- [`README.md`](tests/template-functions/README.md) - Test suite documentation
+- [`CADDY_NATIVE_DJANGO.md`](tests/template-functions/CADDY_NATIVE_DJANGO.md) - Pure Caddy Django deployment guide
+- [`DJANGO_SCENARIO.md`](tests/template-functions/DJANGO_SCENARIO.md) - Django scenario documentation
 
 ```
 tests/template-functions/
@@ -430,7 +454,9 @@ tests/template-functions/
 #### Real-World Scenarios
 
 ##### Django Deployment Test
-Complete Django application with pure Caddy (no Nginx):
+Complete Django application with pure Caddy (no Nginx).
+
+**See**: [`compose.yaml` Django services](tests/template-functions/compose.yaml) and [`CADDY_NATIVE_DJANGO.md`](tests/template-functions/CADDY_NATIVE_DJANGO.md)
 
 ```yaml
 # Django Combined App - ASGI/WSGI with Hypercorn
@@ -457,7 +483,9 @@ caddy:
 ```
 
 ##### Multi-Service Application Test
-Tests complex service interactions:
+Tests complex service interactions.
+
+**See**: [`compose.yaml` multi-service setup](tests/template-functions/compose.yaml)
 
 ```yaml
 # API Backend with container metadata
@@ -507,6 +535,8 @@ cd tests/template-functions/
 ```bash
 ./simple-run.sh
 ```
+
+**Configuration**: See [`simple-test.yaml`](tests/template-functions/simple-test.yaml) for basic template function tests
 
 #### Template Function Validation
 ```bash
