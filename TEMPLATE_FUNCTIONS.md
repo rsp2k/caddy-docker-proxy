@@ -390,6 +390,191 @@ frontend:
     caddy.reverse_proxy: "{{upstreams}}"
 ```
 
+## Testing Infrastructure
+
+Comprehensive test suite validates all template functions across multiple real-world scenarios.
+
+### Test Structure
+
+The testing infrastructure is located in `tests/template-functions/` and includes:
+
+```
+tests/template-functions/
+├── compose.yaml              # Main test configuration (15+ services)
+├── simple-test.yaml         # Basic functionality tests
+├── enhanced-test.yaml       # Advanced template function tests
+├── run.sh                   # Primary test runner script
+├── simple-run.sh           # Basic functionality test runner
+├── validate.sh             # Template function validation
+├── api-responses.sh        # API response testing
+├── test-data/              # Test data for static/media serving
+│   ├── django/             # Django static/media test files
+│   ├── react-build/        # React build artifacts
+│   ├── static/             # Basic static files
+│   └── webapp/             # Web application assets
+├── README.md               # Test suite documentation
+├── CADDY_NATIVE_DJANGO.md  # Pure Caddy Django deployment guide
+└── DJANGO_SCENARIO.md      # Django scenario documentation
+```
+
+### Test Coverage
+
+#### Core Template Functions
+- **Environment Variables**: Tests `{{env}}` and `{{hasEnv}}` with service containers
+- **Container Metadata**: Validates `{{containerName}}`, `{{imageName}}`, `{{imageTag}}`
+- **Network Functions**: Tests `{{primaryIP}}`, `{{networks}}`, `{{networkIP}}`
+- **Volume Functions**: Validates `{{mountSource}}`, `{{bindMounts}}`, `{{volumeMounts}}`
+- **Port Functions**: Tests `{{portMapping}}`, `{{exposedPorts}}`
+- **State Functions**: Validates `{{isRunning}}`, `{{isHealthy}}`
+
+#### Real-World Scenarios
+
+##### Django Deployment Test
+Complete Django application with pure Caddy (no Nginx):
+
+```yaml
+# Django Combined App - ASGI/WSGI with Hypercorn
+django-combined:
+  image: python:3.11-slim
+  command: >
+    sh -c "pip install hypercorn django &&
+           # [Dynamic Django app creation with template functions]"
+  labels:
+    caddy: "{{env "DOMAIN_NAME"}}"
+    caddy.header.X-Container: "{{containerName}}"
+    caddy.header.X-Django-App: "combined"
+    caddy.reverse_proxy: "{{upstreams 8000}}"
+
+# Static files served directly by Caddy main container
+caddy:
+  volumes:
+    - django-static:/srv/django-static:ro
+    - django-media:/srv/django-media:ro
+  labels:
+    caddy_0: "static.{{env "DOMAIN_NAME"}}"
+    caddy_0.root: "* {{mountSource "/srv/django-static"}}"
+    caddy_0.file_server: ""
+```
+
+##### Multi-Service Application Test
+Tests complex service interactions:
+
+```yaml
+# API Backend with container metadata
+api-backend:
+  labels:
+    caddy.route.0_respond: 'API Data from {{containerName}}'
+
+# React Frontend with volume serving  
+react-frontend:
+  labels:
+    caddy: webapp.example.com
+    caddy.header.X-Container: "{{containerName}}"
+    caddy.file_server: ""
+    caddy.root: "* {{mountSource "/app/build"}}"
+
+# Network-aware routing
+network-app:
+  labels:
+    caddy.respond: 'Primary IP: {{primaryIP}} Networks: {{networks}}'
+```
+
+### SSL/TLS Testing
+
+Tests include Let's Encrypt staging environment configuration:
+
+```yaml
+caddy:
+  labels:
+    # Use Let's Encrypt staging for testing
+    caddy_global: |
+      {
+        acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+      }
+```
+
+This eliminates SSL certificate errors during testing while validating HTTPS functionality.
+
+### Test Execution
+
+#### Run All Tests
+```bash
+cd tests/template-functions/
+./run.sh
+```
+
+#### Basic Functionality Test
+```bash
+./simple-run.sh
+```
+
+#### Template Function Validation
+```bash
+./validate.sh
+```
+
+### Test Validation
+
+The test suite validates:
+
+1. **Template Function Processing**: No "function not defined" errors
+2. **Generated Caddyfile**: Correct template function resolution  
+3. **HTTP Responses**: All endpoints return expected content
+4. **Container Metadata**: Template functions return correct values
+5. **Volume Serving**: Static files served correctly from volumes
+6. **Network Functions**: IP addresses and network lists populated
+7. **Error Handling**: Graceful fallback for missing data
+
+### Expected Test Results
+
+#### Successful Template Processing
+```
+Container Name: template-functions-test-container-name-1
+IP: 192.168.48.2 Networks: [template-functions_caddy]
+X-Container: template-functions-django-combined-1
+Primary IP: 172.29.0.17 Networks: caddy_test template-functions_backend
+```
+
+#### Static File Serving
+```
+✅ Django static files served at: https://static.myapp.local:9443/
+✅ Django media files served at: https://media.myapp.local:9443/
+✅ React build artifacts served correctly
+```
+
+#### Template Function Headers
+```
+X-Container: template-functions-api-backend-1
+X-Django-App: combined  
+X-Environment: production
+X-Networks: [web, backend, database]
+```
+
+### Test Configuration Features
+
+- **Port Conflict Resolution**: Uses ports 9080:80, 9443:443 to avoid conflicts
+- **Network Isolation**: Separate networks for frontend, backend, management
+- **Volume Management**: Docker volumes for Django static/media files
+- **Service Dependencies**: Proper startup order and health checks
+- **Template Data**: Comprehensive test data for all scenarios
+
+### Debugging Failed Tests
+
+Common issues and solutions:
+
+```bash
+# Check template function processing
+docker compose logs caddy | grep -E "(Container Name|IP:|Networks)"
+
+# Validate generated Caddyfile
+docker compose logs caddy | grep "New Caddyfile"
+
+# Test specific endpoints
+curl -k --resolve example.com:9443:127.0.0.1 https://example.com:9443/
+```
+
+The comprehensive test suite ensures all template functions work correctly across containers and services, with real-world deployment scenarios validating the complete feature set.
+
 ## Error Handling
 
 All template functions handle errors gracefully:
