@@ -291,21 +291,46 @@ func (g *CaddyfileGenerator) filterLabelsWithContext(labels map[string]string, c
 	filteredLabels := map[string]string{}
 	for label, value := range labels {
 		if g.labelRegex.MatchString(label) {
-			// Skip empty or whitespace-only values to prevent breaking all proxied sites
-			if strings.TrimSpace(value) == "" {
+			// Canonicalize label prefix to "caddy", to prevent any meta characters in the prefix from causing problem in block parsing
+			canonicalLabel := strings.Replace(label, g.options.LabelPrefix, "caddy", 1)
+			
+			// Check for problematic empty labels that would break all proxied sites
+			if strings.TrimSpace(value) == "" && g.isProblematicEmptyLabel(canonicalLabel) {
 				if logger != nil && containerID != "" {
 					logger.Error("🚨 IGNORING EMPTY CADDY LABEL - This would break all proxied sites!",
 						zap.String("container_id", containerID),
-						zap.String("problematic_label", label),
+						zap.String("problematic_label", canonicalLabel),
 						zap.String("label_value", fmt.Sprintf("'%s'", value)),
 						zap.String("action", "skipping_container_label"))
 				}
 				continue
 			}
-			// Canonicalize label prefix to "caddy", to prevent any meta characters in the prefix from causing problem in block parsing
-			label = strings.Replace(label, g.options.LabelPrefix, "caddy", 1)
-			filteredLabels[label] = value
+			
+			filteredLabels[canonicalLabel] = value
 		}
 	}
 	return filteredLabels
+}
+
+// isProblematicEmptyLabel determines if an empty label value is problematic and should be filtered out
+func (g *CaddyfileGenerator) isProblematicEmptyLabel(canonicalLabel string) bool {
+	// The main caddy label (site address) should never be empty
+	if canonicalLabel == "caddy" {
+		return true
+	}
+	
+	// Known problematic nested empty labels that cause parsing issues
+	problematicPatterns := []string{
+		"caddy.tls_insecure_skip_verify",
+		"caddy.reverse_proxy.transport.tls_insecure_skip_verify",
+	}
+	
+	for _, pattern := range problematicPatterns {
+		if canonicalLabel == pattern {
+			return true
+		}
+	}
+	
+	// All other empty labels are considered valid (for boolean/parameter-less directives)
+	return false
 }

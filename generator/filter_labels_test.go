@@ -50,16 +50,17 @@ func TestFilterLabels_EmptyValues(t *testing.T) {
 			},
 		},
 		{
-			name: "filters out empty nested labels",
+			name: "filters out problematic empty nested labels only",
 			input: map[string]string{
 				"caddy":                                       "example.com",
 				"caddy.reverse_proxy":                         "{{upstreams 80}}",
 				"caddy.reverse_proxy.transport.tls_insecure_skip_verify": "",
-				"caddy.tls":                                  "",
+				"caddy.gzip":                                 "", // Valid empty label
 			},
 			expected: map[string]string{
 				"caddy":               "example.com",
 				"caddy.reverse_proxy": "{{upstreams 80}}",
+				"caddy.gzip":         "",
 			},
 		},
 		{
@@ -172,6 +173,30 @@ func TestFilterLabelsWithContext_Logging(t *testing.T) {
 				_, hasValidLabel := result["caddy"]
 				assert.True(t, hasValidLabel, "Valid caddy label should be preserved")
 			}
+		})
+	}
+}
+
+func TestIsProblematicEmptyLabel(t *testing.T) {
+	generator := &CaddyfileGenerator{}
+	
+	tests := []struct {
+		label       string
+		problematic bool
+	}{
+		{"caddy", true},                    // Main caddy label should never be empty
+		{"caddy.gzip", false},             // Valid empty directive
+		{"caddy.experimental_http3", false}, // Valid empty directive
+		{"caddy.reverse_proxy.transport.tls_insecure_skip_verify", true}, // Known problematic
+		{"caddy.tls_insecure_skip_verify", true}, // Known problematic
+		{"caddy.basicauth", false},        // Valid empty directive
+		{"caddy.rewrite", false},          // Valid empty directive
+	}
+	
+	for _, tt := range tests {
+		t.Run(tt.label, func(t *testing.T) {
+			result := generator.isProblematicEmptyLabel(tt.label)
+			assert.Equal(t, tt.problematic, result, "Label: %s", tt.label)
 		})
 	}
 }
