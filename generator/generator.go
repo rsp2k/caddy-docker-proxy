@@ -284,9 +284,24 @@ func (g *CaddyfileGenerator) getIngressNetworks(logger *zap.Logger) (map[string]
 }
 
 func (g *CaddyfileGenerator) filterLabels(labels map[string]string) map[string]string {
+	return g.filterLabelsWithContext(labels, "", nil)
+}
+
+func (g *CaddyfileGenerator) filterLabelsWithContext(labels map[string]string, containerID string, logger *zap.Logger) map[string]string {
 	filteredLabels := map[string]string{}
 	for label, value := range labels {
 		if g.labelRegex.MatchString(label) {
+			// Skip empty or whitespace-only values to prevent breaking all proxied sites
+			if strings.TrimSpace(value) == "" {
+				if logger != nil && containerID != "" {
+					logger.Error("🚨 IGNORING EMPTY CADDY LABEL - This would break all proxied sites!",
+						zap.String("container_id", containerID),
+						zap.String("problematic_label", label),
+						zap.String("label_value", fmt.Sprintf("'%s'", value)),
+						zap.String("action", "skipping_container_label"))
+				}
+				continue
+			}
 			// Canonicalize label prefix to "caddy", to prevent any meta characters in the prefix from causing problem in block parsing
 			label = strings.Replace(label, g.options.LabelPrefix, "caddy", 1)
 			filteredLabels[label] = value
